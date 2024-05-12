@@ -1,16 +1,13 @@
 const express = require('express');
 const fs = require('fs');
-const morgan = require('morgan');
 
 const app = express();
-//! Middlewares
+
 app.use(express.json()); // Middleware for parsing application/json
-app.use(morgan('dev'));
 
 const tours = JSON.parse(
   fs.readFileSync(`${__dirname}/dev-data/data/tours-simple.json`)
 );
-//! ROUTES HANDLERS
 //======================================GETTING ALL TOURS=============================
 const getAllTours = (req, res) => {
   res.status(200).json({
@@ -21,6 +18,7 @@ const getAllTours = (req, res) => {
     },
   });
 };
+app.get('/api/v1/tours', getAllTours);
 //======================================GETTING TOUR=============================
 const getTour = (req, res) => {
   const id = req.params.tourId * 1;
@@ -38,6 +36,7 @@ const getTour = (req, res) => {
     },
   });
 };
+app.get('/api/v1/tours/:tourId', getTour);
 //======================================ADDING TOURS=============================
 const addTour = (req, res) => {
   const newId = tours[tours.length - 1].id + 1;
@@ -57,6 +56,7 @@ const addTour = (req, res) => {
     }
   );
 };
+app.post('/api/v1/tours', addTour);
 //======================================UPDATING TOURS=============================
 const updateTour = (req, res) => {
   const id = req.params.tourId * 1;
@@ -82,6 +82,7 @@ const updateTour = (req, res) => {
     }
   );
 };
+app.patch('/api/v1/tours/:tourId', updateTour);
 //======================================DELETING TOURS=============================
 const deleteTour = (req, res) => {
   const id = req.params.tourId * 1;
@@ -99,14 +100,7 @@ const deleteTour = (req, res) => {
     }
   );
 };
-
-//! ROUTES
-
-const tourRouter = express.Router();
-app.use('/api/v1/tours', tourRouter);
-
-tourRouter.route('/').get(getAllTours).post(addTour);
-tourRouter.route('/:tourId').get(getTour).patch(updateTour).delete(deleteTour);
+app.delete('/api/v1/tours/:tourId', deleteTour);
 
 const PORT = 5000;
 

@@ -1,115 +1,34 @@
 const express = require('express');
-const fs = require('fs');
 const morgan = require('morgan');
 
+const AppError = require('./utils/appErrors');
+const globalErrorHandler = require('./controllers/errorController');
+const tourRouter = require('./routes/tourRoutes');
+const userRouter = require('./routes/userRoutes');
+
 const app = express();
-//! Middlewares
-app.use(express.json()); // Middleware for parsing application/json
-app.use(morgan('dev'));
 
-const tours = JSON.parse(
-  fs.readFileSync(`${__dirname}/dev-data/data/tours-simple.json`)
-);
-//! ROUTES HANDLERS
-//======================================GETTING ALL TOURS=============================
-const getAllTours = (req, res) => {
-  res.status(200).json({
-    status: 'success',
-    results: tours.length,
-    data: {
-      tours,
-    },
-  });
-};
-//======================================GETTING TOUR=============================
-const getTour = (req, res) => {
-  const id = req.params.tourId * 1;
-  const tour = tours.find((el) => el.id === id);
-  if (!tour) {
-    return res.status(404).json({
-      status: 'fail',
-      message: 'Invalid ID',
-    });
-  }
-  res.status(200).json({
-    status: 'success',
-    data: {
-      tour,
-    },
-  });
-};
-//======================================ADDING TOURS=============================
-const addTour = (req, res) => {
-  const newId = tours[tours.length - 1].id + 1;
-  console.log(newId);
-  const newTour = Object.assign({ id: newId }, req.body);
-  tours.push(newTour);
-  fs.writeFile(
-    `${__dirname}/dev-data/data/tours-simple.json`,
-    JSON.stringify(tours),
-    (err) => {
-      res.status(201).json({
-        status: 'success',
-        data: {
-          tour: newTour,
-        },
-      });
-    }
-  );
-};
-//======================================UPDATING TOURS=============================
-const updateTour = (req, res) => {
-  const id = req.params.tourId * 1;
-  const elementToUpdate = req.body;
-  const tour = tours.find((el) => el.id === id);
-  const updatedTour = {
-    ...tour,
-    ...elementToUpdate,
-  };
-  //! updates the tour in the tours array in the json file
-  const filteredTours = tours.filter((el) => el.id !== id);
-  filteredTours.push(updatedTour);
-  fs.writeFile(
-    `${__dirname}/dev-data/data/tours-simple.json`,
-    JSON.stringify(filteredTours),
-    (err) => {
-      res.status(201).json({
-        status: 'success',
-        data: {
-          tour: updatedTour,
-        },
-      });
-    }
-  );
-};
-//======================================DELETING TOURS=============================
-const deleteTour = (req, res) => {
-  const id = req.params.tourId * 1;
-  const filteredTours = tours.filter((el) => el.id !== id);
-  fs.writeFile(
-    `${__dirname}/dev-data/data/tours-simple.json`,
-    JSON.stringify(filteredTours),
-    (err) => {
-      res.status(204).json({
-        status: 'success',
-        data: {
-          tour: null,
-        },
-      });
-    }
-  );
-};
+// 1) MIDDLEWARES
+if (process.env.NODE_ENV === 'development') {
+  app.use(morgan('dev'));
+}
 
-//! ROUTES
+app.use(express.json());
+app.use(express.static(`${__dirname}/public`));
 
-const tourRouter = express.Router();
-app.use('/api/v1/tours', tourRouter);
-
-tourRouter.route('/').get(getAllTours).post(addTour);
-tourRouter.route('/:tourId').get(getTour).patch(updateTour).delete(deleteTour);
-
-const PORT = 5000;
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}...`);
+app.use((req, res, next) => {
+  req.requestTime = new Date().toISOString();
+  next();
 });
+
+// 3) ROUTES
+app.use('/api/v1/tours', tourRouter);
+app.use('/api/v1/users', userRouter);
+
+app.all('*', (req, res, next) => {
+  next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
+});
+
+app.use(globalErrorHandler);
+
+module.exports = app;

@@ -1,5 +1,6 @@
 // eslint-disable-next-line import/no-extraneous-dependencies
 const mongoose = require('mongoose');
+const slugify = require('slugify');
 
 const tourSchema = new mongoose.Schema(
   {
@@ -83,6 +84,44 @@ const tourSchema = new mongoose.Schema(
     toObject: { virtuals: true }
   }
 );
+
+tourSchema.virtual('durationWeeks').get(function() {
+  // this virtual field is not stored in DB
+  // this virtual field is not used in query (we can't use query.find().durationWeeks)
+  // in get we can't use arrow function here because we need to use 'this' keyword
+  return this.duration / 7;
+});
+
+//! DOCUMENT MIDDLEWARE: runs before .save() and .create()
+tourSchema.pre('save', function(next) {
+  // pre-save middleware, this is called before save()
+  this.slug = slugify(this.name, { lower: true }); // add slug to tour object
+  next();
+});
+
+// tourSchema.post('save', function(doc, next) { // post-save middleware, this is called after save()
+//   console.log(doc);
+// })
+
+//! QUERY MIDDLEWARE
+// tourSchema.pre('find', function(next) {
+tourSchema.pre(/^find/, function(next) {
+  // /^find/ is a regular expression that matches any query that starts with find
+  this.find({ secretTour: { $ne: true } });
+  this.start = Date.now();
+  next();
+});
+
+// tourSchema.post(/^find/, function(docs, next) {
+//   console.log(`Query took ${Date.now() - this.start} milliseconds`);
+//   next();
+// });
+
+//! AGGREGATION MIDDLEWARE
+tourSchema.pre('aggregate', function(next) {
+  this.pipeline().unshift({ $match: { secretTour: { $ne: true } } }); // add secretTour filter to pipeline array
+  next();
+});
 
 const Tour = mongoose.model('Tour', tourSchema);
 
